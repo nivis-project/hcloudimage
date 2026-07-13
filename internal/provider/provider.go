@@ -18,6 +18,11 @@ var _ provider.Provider = (*hcloudimageProvider)(nil)
 type hcloudimageProvider struct {
 	// version is set at build time and surfaced to Terraform via Metadata.
 	version string
+
+	// newUploader builds the Uploader from resolved config. Defaults to the fake
+	// (milestone 02); milestone 04 swaps in the real hcloudimages/v2-backed one.
+	// Tests override this to inject a specific fake instance.
+	newUploader func(providerConfig) (Uploader, error)
 }
 
 // providerModel maps the provider configuration schema (BRIEFING.md §3.1) to Go values.
@@ -27,20 +32,42 @@ type providerModel struct {
 	PollInterval types.String `tfsdk:"poll_interval"`
 }
 
-// providerConfig is the resolved configuration handed to resources and data sources.
-//
-// The scaffold plumbs the configuration through only; the real hcloud client is wired
-// behind the Uploader interface in a later milestone (BRIEFING.md §4).
+// providerConfig is the resolved provider configuration.
 type providerConfig struct {
 	Token        string
 	Endpoint     string
 	PollInterval string
 }
 
-// New returns a factory for the provider, capturing the build version.
+// providerData is handed to resources and data sources via configure data. It
+// carries the resolved config and the Uploader implementation to use. Tests can
+// inject a fake uploader by overriding newUploader.
+type providerData struct {
+	Config   providerConfig
+	Uploader Uploader
+}
+
+// New returns a factory for the provider, capturing the build version. The
+// default uploader is the in-memory fake (milestone 02).
 func New(version string) func() provider.Provider {
 	return func() provider.Provider {
-		return &hcloudimageProvider{version: version}
+		return &hcloudimageProvider{
+			version: version,
+			newUploader: func(providerConfig) (Uploader, error) {
+				return NewFakeUploader(), nil
+			},
+		}
+	}
+}
+
+// NewWithUploader is a test seam: it builds the provider with a fixed Uploader,
+// so lifecycle tests can inspect the same fake the resource uses.
+func NewWithUploader(version string, uploader Uploader) func() provider.Provider {
+	return func() provider.Provider {
+		return &hcloudimageProvider{
+			version:     version,
+			newUploader: func(providerConfig) (Uploader, error) { return uploader, nil },
+		}
 	}
 }
 
@@ -89,9 +116,17 @@ func (p *hcloudimageProvider) Configure(ctx context.Context, req provider.Config
 		PollInterval: config.PollInterval.ValueString(),
 	}
 
-	// Resources and data sources read the resolved configuration from here.
-	resp.ResourceData = cfg
-	resp.DataSourceData = cfg
+	uploader, err := p.newUploader(cfg)
+	if err != nil {
+		resp.Diagnostics.AddError("Failed to construct uploader", err.Error())
+		return
+	}
+
+	data := providerData{Config: cfg, Uploader: uploader}
+
+	// Resources and data sources read config + uploader from here.
+	resp.ResourceData = data
+	resp.DataSourceData = data
 }
 
 func (p *hcloudimageProvider) Resources(_ context.Context) []func() resource.Resource {
@@ -101,5 +136,7 @@ func (p *hcloudimageProvider) Resources(_ context.Context) []func() resource.Res
 }
 
 func (p *hcloudimageProvider) DataSources(_ context.Context) []func() datasource.DataSource {
-	return []func() datasource.DataSource{}
+	return []func() datasource.DataSource{
+		NewSnapshotDataSource,
+	}
 }

@@ -54,3 +54,11 @@ func TestProvider_Resources(t *testing.T) {
 		t.Fatalf("Resources() returned %d resources, want 1", len(resources))
 	}
 }
+
+func TestProvider_DataSources(t *testing.T) {
+	prov := New("test")()
+	dataSources := prov.DataSources(context.Background())
+	if len(dataSources) != 1 {
+		t.Fatalf("DataSources() returned %d data sources, want 1", len(dataSources))
+	}
+}
