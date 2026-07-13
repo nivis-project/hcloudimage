@@ -21,8 +21,10 @@ let
 
   images = {
     "x86_64" = {
-      url = "https://dl-cdn.alpinelinux.org/alpine/${alpineBranch}/releases/cloud/nocloud_alpine-${alpineVersion}-x86_64-bios-cloudinit-r0.qcow2";
-      hash = "sha256-CUfDkfW/TzBZtJmgwy8WKniG3BAsHn7O6W1l7YDpmbI=";
+      # UEFI variant: Hetzner boots x86 cloud servers via UEFI, so a BIOS image
+      # has no EFI boot path and the firmware drops to the EFI shell.
+      url = "https://dl-cdn.alpinelinux.org/alpine/${alpineBranch}/releases/cloud/nocloud_alpine-${alpineVersion}-x86_64-uefi-cloudinit-r0.qcow2";
+      hash = "sha256-pH1vtXOc0aGrdZglX9Rwz/dkv2167OxTNTuPXQkHM28=";
     };
     "aarch64" = {
       url = "https://dl-cdn.alpinelinux.org/alpine/${alpineBranch}/releases/cloud/nocloud_alpine-${alpineVersion}-aarch64-uefi-cloudinit-r0.qcow2";
