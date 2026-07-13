@@ -54,14 +54,28 @@ The provider address is `nivis-project/hcloudimage`, protocol `6.0` (declared in
 
 ## OpenTofu Registry
 
-OpenTofu reuses the same signed release artifacts. Onboarding is a submission to
-[`github.com/opentofu/registry`](https://github.com/opentofu/registry)
-referencing the repo and the GPG key.
+OpenTofu reuses the same signed release artifacts. Onboarding is done entirely
+through **GitHub issue forms** on
+[`github.com/opentofu/registry`](https://github.com/opentofu/registry) — **not**
+pull requests. Their README is explicit: submissions must go through the issue
+form UI in a browser; the `gh` CLI, the GitHub API, or PRs are rejected and
+closed, because the automated validation depends on the structured issue-form
+data.
 
-1. Open a submission PR to `opentofu/registry` for `nivis-project/hcloudimage`.
-2. Provide the repo URL and the GPG public key so OpenTofu can verify the
-   signed `SHA256SUMS`.
-3. Confirm the current submission procedure at submission time — it evolves;
-   follow the registry's `CONTRIBUTING`/issue templates.
+There are two separate submissions, and the **signing key must be registered
+first** because the provider validation verifies the release's
+`SHA256SUMS.sig` against it:
+
+1. **Submit new Provider Signing Key** —
+   <https://github.com/opentofu/registry/issues/new?template=provider_key.yml>
+   - Namespace: `nivis-project`
+   - GPG public key: paste [`keys/hcloudimage-signing.pub.asc`](../keys/hcloudimage-signing.pub.asc)
+     (fingerprint `74F05F879B947F24006761E3FC80F1F128669C1B`).
+2. **Submit new Provider** —
+   <https://github.com/opentofu/registry/issues/new?template=provider.yml>
+   - For `nivis-project/terraform-provider-hcloudimage`.
+
+(If the provider issue was opened before the key issue, that's fine — it
+validates once the key submission is accepted.)
 
 Once accepted, tagged releases flow to OpenTofu the same way as Terraform.
