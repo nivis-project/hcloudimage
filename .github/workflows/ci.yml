@@ -1,0 +1,95 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Cancel superseded runs on the same ref.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint-build-test:
+    name: lint · build · unit + coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@main
+      - uses: DeterminateSystems/magic-nix-cache-action@main
+
+      - name: golangci-lint
+        run: nix develop --command golangci-lint run ./...
+
+      - name: go build
+        run: nix develop --command go build ./...
+
+      - name: go test (unit + lifecycle) with coverage
+        env:
+          TF_ACC: "1"
+        run: |
+          nix develop --command bash -c '
+            export TF_ACC_TERRAFORM_PATH="$(command -v terraform)"
+            go test ./... -covermode=atomic -coverprofile=coverage.out
+          '
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: coverage.out
+          # Token is optional for public repos; provided as a secret otherwise.
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
+
+  validate-examples:
+    name: examples validate (terraform + tofu)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@main
+      - uses: DeterminateSystems/magic-nix-cache-action@main
+
+      - name: Build provider
+        run: nix build .#default
+
+      - name: Validate examples
+        run: nix develop --command bash scripts/validate-examples.sh
+
+  flake-check:
+    name: nix flake check (hermetic lifecycle)
+    # NixOS VM tests need KVM. GitHub's ubuntu runners expose /dev/kvm on the
+    # larger images; if a job here fails for lack of KVM, run it on a
+    # self-hosted or nested-virt-enabled runner (documented in README).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@main
+      - uses: DeterminateSystems/magic-nix-cache-action@main
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: nix flake check
+        run: nix flake check --print-build-logs
+
+  docs:
+    name: docs are up to date
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@main
+      - uses: DeterminateSystems/magic-nix-cache-action@main
+
+      - name: Regenerate docs
+        run: nix develop --command tfplugindocs generate --provider-name hcloudimage
+
+      - name: Fail on docs drift
+        run: git diff --exit-code docs/

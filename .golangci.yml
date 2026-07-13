@@ -1,0 +1,27 @@
+version: "2"
+
+linters:
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - misspell
+    - unconvert
+    - revive
+  settings:
+    revive:
+      rules:
+        # Keep the useful rules; drop the doc-comment nags that add noise
+        # without catching defects (the interface types are documented).
+        - name: exported
+          disabled: true
+        - name: package-comments
+          disabled: true
+        - name: unused-parameter
+          disabled: true
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
