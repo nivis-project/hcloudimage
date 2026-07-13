@@ -41,8 +41,33 @@
         };
       });
 
+      packages = forAllSystems (pkgs: {
+        default = pkgs.buildGoModule {
+          pname = "terraform-provider-hcloudimage";
+          version = "0.1.0-dev";
+          src = ./.;
+
+          # Bump whenever go.mod / go.sum change:
+          #   set to pkgs.lib.fakeHash, run `nix build .#default`, copy the "got:" hash.
+          vendorHash = "sha256-lFXGYRegmUO7+06GxldvT4itNo/+egiFR6raT+eMAe4=";
+
+          # Stamp the version into the binary the way goreleaser does (BRIEFING.md §10).
+          ldflags = [
+            "-s"
+            "-w"
+            "-X main.version=0.1.0-dev"
+          ];
+
+          meta = {
+            description = "Terraform & OpenTofu provider: upload raw disk images to Hetzner Cloud as snapshots";
+            homepage = "https://github.com/nivis-project/terraform-provider-hcloudimage";
+            license = pkgs.lib.licenses.mpl20;
+            mainProgram = "terraform-provider-hcloudimage";
+          };
+        };
+      });
+
       # To be added per BRIEFING.md §7 as milestones progress:
-      #   packages.default          — provider via buildGoModule, pinned vendorHash (milestone 01)
       #   checks.hermetic-e2e       — NixOS-VM lifecycle test, Linux only (milestone 05)
       #   packages.test-image-x86   — Alpine amd64 fixture, .raw.xz, baked SSH key (milestone 07)
       #   packages.test-image-arm   — Alpine aarch64 fixture (milestone 07)
