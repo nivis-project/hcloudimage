@@ -91,7 +91,12 @@ pkgs.stdenv.mkDerivation {
       --chmod 0600:/root/.ssh/authorized_keys \
       --upload interfaces:/etc/network/interfaces \
       --run-command 'rc-update add sshd default || true' \
-      --run-command 'rc-update add networking default || true'
+      --run-command 'rc-update add networking default || true' \
+      --run-command 'rc-update add local default || true' \
+      `# The nocloud image ships cloud-init enabled. We bake the key directly and` \
+      `# rely on no datasource (BRIEFING §8.3), so cloud-init would only stall the` \
+      `# boot waiting for a seed. Disable every cloud-init service.` \
+      --run-command 'for s in cloud-init cloud-config cloud-final cloud-init-hotplugd cloud-init-local; do rc-update del $s default 2>/dev/null || true; rc-update del $s boot 2>/dev/null || true; done'
 
     # Assert the guest architecture matches (no silent x86 fallback for arm).
     # Write to a file first: piping virt-inspector into grep -q makes grep close
