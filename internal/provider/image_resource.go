@@ -136,8 +136,14 @@ func (r *imageResource) Schema(ctx context.Context, _ resource.SchemaRequest, re
 				PlanModifiers:       []planmodifier.Int64{int64planmodifier.RequiresReplace()},
 			},
 			"description": schema.StringAttribute{
-				MarkdownDescription: "Snapshot description. Updated in place without a re-upload.",
-				Optional:            true,
+				MarkdownDescription: "Snapshot description. Updated in place without a re-upload. If unset, " +
+					"Hetzner assigns a default (`snapshot <timestamp>`), which is reflected here.",
+				Optional: true,
+				// Computed too: the hcloud API auto-generates a description when the
+				// user omits one, so Terraform must accept that server value without
+				// treating it as drift.
+				Computed:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 			"labels": schema.MapAttribute{
 				MarkdownDescription: "User labels merged onto the library defaults; managed in place without a re-upload. Values must not contain `/` (Hetzner rule).",
@@ -249,6 +255,19 @@ func (r *imageResource) Create(ctx context.Context, req resource.CreateRequest, 
 		return
 	}
 
+	// description is Optional+Computed: when the config omits it, Hetzner assigns
+	// a default (e.g. "snapshot <timestamp>"). Read it back so state matches the
+	// server and the next plan is clean.
+	if plan.Description.IsNull() || plan.Description.IsUnknown() {
+		info, err := r.uploader.Get(ctx, id)
+		if err == nil && info != nil {
+			plan.Description = types.StringValue(info.Description)
+		} else {
+			// Fall back to empty-known so the value is never left null/unknown.
+			plan.Description = types.StringValue("")
+		}
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -270,11 +289,9 @@ func (r *imageResource) Read(ctx context.Context, req resource.ReadRequest, resp
 		return
 	}
 
-	// Preserve a null description rather than turning it into "" (which would
-	// show a spurious diff against a config that omits description).
-	if !state.Description.IsNull() || info.Description != "" {
-		state.Description = types.StringValue(info.Description)
-	}
+	// description is Computed, so reflect the server's value directly (the server
+	// assigns a default when the user omits one).
+	state.Description = types.StringValue(info.Description)
 	resp.Diagnostics.Append(setEffectiveLabels(ctx, &state, info.Labels)...)
 	if resp.Diagnostics.HasError() {
 		return

@@ -74,7 +74,7 @@ output "snapshot_id" {
 ### Optional
 
 - `compression` (String) Image compression: `none` (default), `bz2`, `xz`, or `zstd`. Changing it forces a new snapshot.
-- `description` (String) Snapshot description. Updated in place without a re-upload.
+- `description` (String) Snapshot description. Updated in place without a re-upload. If unset, Hetzner assigns a default (`snapshot <timestamp>`), which is reflected here.
 - `format` (String) Image format: `raw` (default) or `qcow2`. Changing it forces a new snapshot.
 - `image_path` (String) Local file path on the apply host; streamed over SSH (bounded by your upload bandwidth). Mutually exclusive with `image_url`. Requires `image_sha256`. Changing it forces a new snapshot.
 - `image_sha256` (String) SHA-256 of the local image file, required when `image_path` is set. This is the ForceNew trigger for local files — set it with `filesha256(var.image_path)`.

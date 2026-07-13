@@ -54,11 +54,19 @@ func (f *FakeUploader) Upload(_ context.Context, req UploadRequest) (int64, map[
 	f.nextID++
 
 	effective := mergeEffectiveLabels(req.Labels)
+	// Mirror the real hcloud API: when no description is given, the server assigns
+	// a default ("snapshot <id>"). Reproducing this in the fake means the lifecycle
+	// and hermetic tests catch the Optional+Computed description handling that a
+	// real snapshot exercises.
+	description := req.Description
+	if description == "" {
+		description = fmt.Sprintf("snapshot %d", id)
+	}
 	f.store[id] = &fakeSnapshot{
 		info: SnapshotInfo{
 			ID:           id,
 			Name:         fmt.Sprintf("snapshot-%d", id),
-			Description:  req.Description,
+			Description:  description,
 			Architecture: req.Architecture,
 			Labels:       effective,
 			Created:      fmt.Sprintf("2026-01-01T00:00:%02dZ", int(id%60)),

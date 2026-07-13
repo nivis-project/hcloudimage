@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -109,8 +110,9 @@ func TestToUploadRequest_BothSourcesAndArches(t *testing.T) {
 // TestImageSchema_ForceNewVsInPlace inspects the schema to confirm the
 // ForceNew attributes carry a plan modifier and description/labels do not.
 func TestImageSchema_ForceNewVsInPlace(t *testing.T) {
+	ctx := context.Background()
 	var resp resource.SchemaResponse
-	NewImageResource().Schema(context.Background(), resource.SchemaRequest{}, &resp)
+	NewImageResource().Schema(ctx, resource.SchemaRequest{}, &resp)
 	if resp.Diagnostics.HasError() {
 		t.Fatalf("schema diagnostics: %v", resp.Diagnostics)
 	}
@@ -123,34 +125,60 @@ func TestImageSchema_ForceNewVsInPlace(t *testing.T) {
 			t.Errorf("missing attribute %q", name)
 			continue
 		}
-		if countPlanModifiers(attr) == 0 {
-			t.Errorf("attribute %q should have a ForceNew plan modifier", name)
+		if !hasRequiresReplace(ctx, attr) {
+			t.Errorf("attribute %q should have a RequiresReplace (ForceNew) plan modifier", name)
 		}
 	}
 
+	// description/labels update in place: they must NOT force replacement.
+	// (They may still carry non-replace modifiers like UseStateForUnknown.)
 	for _, name := range []string{"description", "labels"} {
 		attr, ok := resp.Schema.Attributes[name]
 		if !ok {
 			t.Errorf("missing attribute %q", name)
 			continue
 		}
-		if countPlanModifiers(attr) != 0 {
-			t.Errorf("attribute %q should update in place (no plan modifier)", name)
+		if hasRequiresReplace(ctx, attr) {
+			t.Errorf("attribute %q must update in place, not force replacement", name)
 		}
 	}
 }
 
-// countPlanModifiers reports how many plan modifiers an attribute declares,
-// across the string/int64/map kinds this resource uses.
-func countPlanModifiers(a schema.Attribute) int {
-	switch v := a.(type) {
-	case schema.StringAttribute:
-		return len(v.PlanModifiers)
-	case schema.Int64Attribute:
-		return len(v.PlanModifiers)
-	case schema.MapAttribute:
-		return len(v.PlanModifiers)
-	default:
-		return 0
+// hasRequiresReplace reports whether an attribute carries a RequiresReplace-style
+// plan modifier, identified by its self-description ("require the resource to be
+// replaced"). Non-replace modifiers (e.g. UseStateForUnknown) are ignored.
+func hasRequiresReplace(ctx context.Context, a schema.Attribute) bool {
+	descs := func() []string {
+		switch v := a.(type) {
+		case schema.StringAttribute:
+			out := make([]string, 0, len(v.PlanModifiers))
+			for _, m := range v.PlanModifiers {
+				out = append(out, m.Description(ctx))
+			}
+			return out
+		case schema.Int64Attribute:
+			out := make([]string, 0, len(v.PlanModifiers))
+			for _, m := range v.PlanModifiers {
+				out = append(out, m.Description(ctx))
+			}
+			return out
+		case schema.MapAttribute:
+			out := make([]string, 0, len(v.PlanModifiers))
+			for _, m := range v.PlanModifiers {
+				out = append(out, m.Description(ctx))
+			}
+			return out
+		default:
+			return nil
+		}
+	}()
+	// The framework's RequiresReplace modifier describes itself as
+	// "...Terraform will destroy and recreate the resource."
+	for _, d := range descs {
+		l := strings.ToLower(d)
+		if strings.Contains(l, "destroy and recreate") || strings.Contains(l, "requires replace") {
+			return true
+		}
 	}
+	return false
 }
