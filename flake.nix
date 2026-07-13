@@ -83,6 +83,22 @@
         # Filesystem-mirror layout so Nivis can consume the provider without a
         # public registry (BRIEFING.md §7). Documented consumption in milestone 09.
         provider-mirror = mirrorFor pkgs;
+
+        # Reproducible Alpine acceptance fixtures (BRIEFING.md §8.3). test-image-x86
+        # builds natively; test-image-arm targets aarch64 (built via a native
+        # aarch64 runner, a configured remote builder, or binfmt/QEMU emulation —
+        # see README). The arch is asserted in the derivation so the arm job never
+        # silently uploads an x86 image.
+        test-image-x86 = import ./nix/test-image.nix {
+          inherit pkgs;
+          arch = "x86_64";
+          authorizedKey = ./test/fixtures/throwaway_ed25519.pub;
+        };
+        test-image-arm = import ./nix/test-image.nix {
+          inherit pkgs;
+          arch = "aarch64";
+          authorizedKey = ./test/fixtures/throwaway_ed25519.pub;
+        };
       });
 
       # Hermetic NixOS-VM lifecycle test — the PoC Definition-of-Done gate

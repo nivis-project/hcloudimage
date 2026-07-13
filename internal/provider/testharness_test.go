@@ -13,3 +13,11 @@ func protoV6Factories(fake Uploader) map[string]func() (tfprotov6.ProviderServer
 		"hcloudimage": providerserver.NewProtocol6WithError(NewWithUploader("test", fake)()),
 	}
 }
+
+// protoV6RealFactories wires the provider with its normal uploader selection
+// (real when HCLOUD_TOKEN is set). Used by the billable acceptance tests.
+func protoV6RealFactories() map[string]func() (tfprotov6.ProviderServer, error) {
+	return map[string]func() (tfprotov6.ProviderServer, error){
+		"hcloudimage": providerserver.NewProtocol6WithError(New("acc")()),
+	}
+}
