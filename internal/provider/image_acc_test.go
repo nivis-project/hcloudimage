@@ -71,12 +71,13 @@ func runAcceptance(t *testing.T, c accCase) {
 	config := fmt.Sprintf(`
 terraform {
   required_providers {
-    hcloudimage = { source = "nivis-project/hcloudimage" }
-    hcloud      = { source = "hetznercloud/hcloud", version = "~> 1.48" }
+    # hcloudimage is injected in-process by ProtoV6ProviderFactories, so it must
+    # NOT be listed here — declaring it makes terraform try to resolve it from the
+    # registry during init and write an unsatisfiable lock entry.
+    hcloud = { source = "hetznercloud/hcloud", version = "~> 1.48" }
   }
 }
 
-provider "hcloudimage" {}
 provider "hcloud" {}
 
 resource "hcloudimage_image" "test" {
