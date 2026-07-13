@@ -30,12 +30,16 @@ type FakeUploader struct {
 	createdOrder []int64 // insertion order, so most_recent is deterministic
 }
 
-// NewFakeUploader returns a ready-to-use fake.
+// NewFakeUploader returns a ready-to-use fake. When HCLOUDIMAGE_FAKE_STATE names
+// a file, it loads any previously persisted store so the fake survives across
+// provider processes (used by the hermetic VM test).
 func NewFakeUploader() *FakeUploader {
-	return &FakeUploader{
+	f := &FakeUploader{
 		nextID: 1000,
 		store:  make(map[int64]*fakeSnapshot),
 	}
+	f.load()
+	return f
 }
 
 var _ Uploader = (*FakeUploader)(nil)
@@ -61,6 +65,7 @@ func (f *FakeUploader) Upload(_ context.Context, req UploadRequest) (int64, map[
 		},
 	}
 	f.createdOrder = append(f.createdOrder, id)
+	f.save()
 	return id, effective, nil
 }
 
@@ -70,6 +75,7 @@ func (f *FakeUploader) Delete(_ context.Context, imageID int64) error {
 
 	f.DeleteCalls = append(f.DeleteCalls, imageID)
 	delete(f.store, imageID)
+	f.save()
 	return nil
 }
 
@@ -98,6 +104,7 @@ func (f *FakeUploader) UpdateMetadata(_ context.Context, imageID int64, descript
 	effective := mergeEffectiveLabels(labels)
 	snap.info.Description = description
 	snap.info.Labels = effective
+	f.save()
 	return effective, nil
 }
 
@@ -160,5 +167,6 @@ func (f *FakeUploader) MarkDeleted(imageID int64) {
 	defer f.mu.Unlock()
 	if snap, ok := f.store[imageID]; ok {
 		snap.deleted = true
+		f.save()
 	}
 }

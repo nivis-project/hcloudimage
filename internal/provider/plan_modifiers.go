@@ -37,6 +37,15 @@ func (m effectiveLabelsModifier) PlanModifyMap(ctx context.Context, req planmodi
 		return
 	}
 
+	// If any element value is unknown, we can't compute the merged map yet;
+	// leave effective_labels unknown and let apply fill it in.
+	for _, el := range userLabels.Elements() {
+		if el.IsUnknown() {
+			resp.PlanValue = types.MapUnknown(types.StringType)
+			return
+		}
+	}
+
 	raw := map[string]string{}
 	if !userLabels.IsNull() {
 		resp.Diagnostics.Append(userLabels.ElementsAs(ctx, &raw, false)...)
