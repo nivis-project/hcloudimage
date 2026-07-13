@@ -47,13 +47,24 @@ type providerData struct {
 	Uploader Uploader
 }
 
-// New returns a factory for the provider, capturing the build version. The
-// default uploader is the in-memory fake (milestone 02).
+// New returns a factory for the provider, capturing the build version.
+//
+// Uploader selection precedence:
+//   - HCLOUDIMAGE_FAKE=1        → fake (hermetic VM test switch)
+//   - token present             → real hcloudimages/v2-backed uploader
+//   - otherwise                 → fake, so validate/plan without a token and
+//     unit tests never need real credentials.
 func New(version string) func() provider.Provider {
 	return func() provider.Provider {
 		return &hcloudimageProvider{
 			version: version,
-			newUploader: func(providerConfig) (Uploader, error) {
+			newUploader: func(cfg providerConfig) (Uploader, error) {
+				if os.Getenv("HCLOUDIMAGE_FAKE") == "1" {
+					return NewFakeUploader(), nil
+				}
+				if cfg.Token != "" {
+					return newHcloudUploader(cfg)
+				}
 				return NewFakeUploader(), nil
 			},
 		}

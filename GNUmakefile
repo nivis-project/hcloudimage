@@ -3,7 +3,7 @@
 
 BINARY := terraform-provider-hcloudimage
 
-.PHONY: default build test testacc lint fmt docs clean
+.PHONY: default build test testacc lint fmt docs validate-examples clean
 
 default: build
 
@@ -30,6 +30,12 @@ fmt:
 # Generate provider docs from schema + examples (BRIEFING.md §11).
 docs:
 	tfplugindocs generate
+
+# Validate the HCL examples under both terraform and tofu (BRIEFING.md §5).
+# Builds the provider first so the mirror in the script has a binary.
+validate-examples:
+	nix build .#default
+	bash scripts/validate-examples.sh
 
 clean:
 	rm -f $(BINARY) coverage.out

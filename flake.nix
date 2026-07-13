@@ -49,7 +49,7 @@
 
           # Bump whenever go.mod / go.sum change:
           #   set to pkgs.lib.fakeHash, run `nix build .#default`, copy the "got:" hash.
-          vendorHash = "sha256-iUdZQv4m3qTcpUWKEP7xiOPv0i4LeHT887m7rR+g2hM=";
+          vendorHash = "sha256-HxlNF8o+jzQlr0Lfv5udQUSG2p7HqDkvTmWaM+32Txw=";
 
           # Stamp the version into the binary the way goreleaser does (BRIEFING.md §10).
           ldflags = [
