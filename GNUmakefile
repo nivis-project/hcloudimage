@@ -3,7 +3,7 @@
 
 BINARY := terraform-provider-hcloudimage
 
-.PHONY: default build test testacc lint fmt docs validate-examples clean
+.PHONY: default build test testacc lint fmt docs validate-examples consume-mirror clean
 
 default: build
 
@@ -36,6 +36,10 @@ docs:
 validate-examples:
 	nix build .#default
 	bash scripts/validate-examples.sh
+
+# Prove registry-less consumption from the Nix filesystem mirror (BRIEFING.md §7).
+consume-mirror:
+	bash scripts/verify-mirror.sh
 
 clean:
 	rm -f $(BINARY) coverage.out
