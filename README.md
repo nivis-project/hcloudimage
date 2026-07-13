@@ -135,7 +135,9 @@ To run them you need (these are the human-provided prerequisites):
 ```sh
 export HCLOUD_TOKEN=...            # isolated CI project
 export TF_ACC=1
-export HCLOUDIMAGE_ACC_IMAGE_PATH="$(ls result/*.raw.xz)"
+# Must be ABSOLUTE: the test's filesha256() resolves image_path relative to the
+# module dir (a temp dir), not your shell — and `result` is a relative symlink.
+export HCLOUDIMAGE_ACC_IMAGE_PATH="$PWD/$(ls result/*.raw.xz)"
 export HCLOUDIMAGE_ACC_SSH_KEY="$PWD/test/fixtures/throwaway_ed25519"
 export HCLOUDIMAGE_ACC_RUN_ARM=0   # set 1 to include the arm leg
 nix develop --command go test ./internal/provider -run TestAccImage_RealHetzner -v -timeout 60m

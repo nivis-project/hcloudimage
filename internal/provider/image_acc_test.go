@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -11,6 +12,28 @@ import (
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 )
+
+// mustAbs turns a path from the environment into an absolute path so terraform's
+// module-relative file functions resolve it correctly, and fails loudly if it
+// doesn't exist. Note: `go test` runs with the working directory set to the
+// package (internal/provider), so a relative value resolves against THAT, not the
+// repo root — always pass an absolute path (e.g. "$PWD/$(ls result/*.raw.xz)").
+func mustAbs(t *testing.T, name, p string) string {
+	t.Helper()
+	if p == "" {
+		t.Fatalf("%s is empty", name)
+	}
+	abs, err := filepath.Abs(p)
+	if err != nil {
+		t.Fatalf("%s: resolving %q to an absolute path: %v", name, p, err)
+	}
+	if _, err := os.Stat(abs); err != nil {
+		t.Fatalf("%s=%q does not exist (resolved to %q). Pass an ABSOLUTE path — "+
+			"go test's working dir is the package, not the repo root. "+
+			"Example: export %s=\"$PWD/$(ls result/*.raw.xz)\"", name, p, abs, name)
+	}
+	return abs
+}
 
 // Billable acceptance tests (BRIEFING.md §8.3). These run only when TF_ACC=1 and
 // HCLOUD_TOKEN are set, against a real, isolated, budget-limited Hetzner project.
@@ -63,8 +86,12 @@ func TestAccImage_RealHetzner_arm(t *testing.T) {
 func runAcceptance(t *testing.T, c accCase) {
 	t.Helper()
 
-	imagePath := os.Getenv("HCLOUDIMAGE_ACC_IMAGE_PATH")
-	sshKey := os.Getenv("HCLOUDIMAGE_ACC_SSH_KEY")
+	// Resolve to absolute paths: the HCL uses filesha256(image_path) and file(key),
+	// which terraform resolves relative to the module dir (a temp dir), not the
+	// caller's cwd. A relative env value (e.g. "result/x.raw.xz") would otherwise
+	// fail deep inside the plan with a confusing filesha256 error.
+	imagePath := mustAbs(t, "HCLOUDIMAGE_ACC_IMAGE_PATH", os.Getenv("HCLOUDIMAGE_ACC_IMAGE_PATH"))
+	sshKey := mustAbs(t, "HCLOUDIMAGE_ACC_SSH_KEY", os.Getenv("HCLOUDIMAGE_ACC_SSH_KEY"))
 
 	// The real uploader is selected automatically because HCLOUD_TOKEN is set and
 	// HCLOUDIMAGE_FAKE is unset.
