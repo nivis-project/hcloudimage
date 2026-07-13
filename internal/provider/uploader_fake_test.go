@@ -97,8 +97,12 @@ func TestFakeUploader_FindByID(t *testing.T) {
 func TestFakeUploader_FindBySelector(t *testing.T) {
 	ctx := context.Background()
 	f := NewFakeUploader()
-	f.Upload(ctx, UploadRequest{Architecture: "x86", Labels: map[string]string{"role": "base"}})
-	f.Upload(ctx, UploadRequest{Architecture: "x86", Labels: map[string]string{"role": "base"}})
+	if _, _, err := f.Upload(ctx, UploadRequest{Architecture: "x86", Labels: map[string]string{"role": "base"}}); err != nil {
+		t.Fatalf("Upload: %v", err)
+	}
+	if _, _, err := f.Upload(ctx, UploadRequest{Architecture: "x86", Labels: map[string]string{"role": "base"}}); err != nil {
+		t.Fatalf("Upload: %v", err)
+	}
 
 	// Ambiguous without most_recent -> error.
 	if _, err := f.Find(ctx, 0, "role=base", false); err == nil {

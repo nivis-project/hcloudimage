@@ -49,7 +49,7 @@
 
           # Bump whenever go.mod / go.sum change:
           #   set to pkgs.lib.fakeHash, run `nix build .#default`, copy the "got:" hash.
-          vendorHash = "sha256-fR1cyXt7Ue2Rvf7g49Yar6Kkv8aEQnzVqapHN3zL+eM=";
+          vendorHash = "sha256-iUdZQv4m3qTcpUWKEP7xiOPv0i4LeHT887m7rR+g2hM=";
 
           # Stamp the version into the binary the way goreleaser does (BRIEFING.md §10).
           ldflags = [
@@ -57,6 +57,12 @@
             "-w"
             "-X main.version=0.1.0-dev"
           ];
+
+          # The package build only compiles the provider. Tests run in the
+          # devShell / CI (unit) and, for the protocol layer, the hermetic
+          # NixOS-VM check (milestone 05) — they need a terraform binary and
+          # TF_ACC, which the buildGoModule sandbox deliberately lacks.
+          doCheck = false;
 
           meta = {
             description = "Terraform & OpenTofu provider: upload raw disk images to Hetzner Cloud as snapshots";

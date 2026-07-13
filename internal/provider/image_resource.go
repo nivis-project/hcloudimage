@@ -12,7 +12,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/mapplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
@@ -71,6 +70,13 @@ func (r *imageResource) Configure(_ context.Context, req resource.ConfigureReque
 
 func (r *imageResource) Schema(ctx context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	forceNewString := []planmodifier.String{stringplanmodifier.RequiresReplace()}
+	// Computed defaults (compression/format/location) must keep their prior
+	// state value when the config omits them, or every refresh would show them
+	// going to "known after apply" and spuriously force replacement.
+	forceNewComputedString := []planmodifier.String{
+		stringplanmodifier.UseStateForUnknown(),
+		stringplanmodifier.RequiresReplace(),
+	}
 
 	resp.Schema = schema.Schema{
 		MarkdownDescription: "Uploads a raw disk image into a Hetzner Cloud project and snapshots it via the rescue-server upload trick.\n\n" +
@@ -103,14 +109,14 @@ func (r *imageResource) Schema(ctx context.Context, _ resource.SchemaRequest, re
 				MarkdownDescription: "Image compression: `none` (default), `bz2`, `xz`, or `zstd`. Changing it forces a new snapshot.",
 				Optional:            true,
 				Computed:            true,
-				PlanModifiers:       forceNewString,
+				PlanModifiers:       forceNewComputedString,
 				Validators:          []validator.String{stringvalidator.OneOf(ValidCompressions...)},
 			},
 			"format": schema.StringAttribute{
 				MarkdownDescription: "Image format: `raw` (default) or `qcow2`. Changing it forces a new snapshot.",
 				Optional:            true,
 				Computed:            true,
-				PlanModifiers:       forceNewString,
+				PlanModifiers:       forceNewComputedString,
 				Validators:          []validator.String{stringvalidator.OneOf(ValidFormats...)},
 			},
 			"server_type": schema.StringAttribute{
@@ -122,7 +128,7 @@ func (r *imageResource) Schema(ctx context.Context, _ resource.SchemaRequest, re
 				MarkdownDescription: "Temporary server location. Defaults to `fsn1`. Changing it forces a new snapshot.",
 				Optional:            true,
 				Computed:            true,
-				PlanModifiers:       forceNewString,
+				PlanModifiers:       forceNewComputedString,
 			},
 			"image_size": schema.Int64Attribute{
 				MarkdownDescription: "Optional pre-write size validation, passed through to the upload library. Changing it forces a new snapshot.",
@@ -148,7 +154,7 @@ func (r *imageResource) Schema(ctx context.Context, _ resource.SchemaRequest, re
 				MarkdownDescription: "Final label set on the snapshot (user labels + library defaults such as `apricote.de/created-by`).",
 				ElementType:         types.StringType,
 				Computed:            true,
-				PlanModifiers:       []planmodifier.Map{mapplanmodifier.UseStateForUnknown()},
+				PlanModifiers:       []planmodifier.Map{effectiveLabelsPlan()},
 			},
 		},
 		Blocks: map[string]schema.Block{
@@ -264,7 +270,11 @@ func (r *imageResource) Read(ctx context.Context, req resource.ReadRequest, resp
 		return
 	}
 
-	state.Description = types.StringValue(info.Description)
+	// Preserve a null description rather than turning it into "" (which would
+	// show a spurious diff against a config that omits description).
+	if !state.Description.IsNull() || info.Description != "" {
+		state.Description = types.StringValue(info.Description)
+	}
 	resp.Diagnostics.Append(setEffectiveLabels(ctx, &state, info.Labels)...)
 	if resp.Diagnostics.HasError() {
 		return
