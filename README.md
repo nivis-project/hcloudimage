@@ -127,8 +127,10 @@ To run them you need (these are the human-provided prerequisites):
 
 - `HCLOUD_TOKEN` for a **separate, isolated, budget-limited** Hetzner project
   (set a spend alert).
-- A test fixture image built by the flake:
-  `nix build .#test-image-x86` (or `.#test-image-arm`) → `result/*.raw.xz`.
+- A test fixture image built by the flake, to a **dedicated** out-link so other
+  `nix build`s (docs, `nix flake check`) don't clobber the `result` symlink:
+  `nix build .#test-image-x86 --out-link result-fixture` (or `.#test-image-arm`)
+  → `result-fixture/*.raw.xz`.
 - The throwaway SSH key in `test/fixtures/` (baked into the fixture; used to SSH
   into the booted server).
 
@@ -136,8 +138,9 @@ To run them you need (these are the human-provided prerequisites):
 export HCLOUD_TOKEN=...            # isolated CI project
 export TF_ACC=1
 # Must be ABSOLUTE: the test's filesha256() resolves image_path relative to the
-# module dir (a temp dir), not your shell — and `result` is a relative symlink.
-export HCLOUDIMAGE_ACC_IMAGE_PATH="$PWD/$(ls result/*.raw.xz)"
+# module dir (a temp dir), not your shell. Use the dedicated result-fixture link
+# so an empty glob can't collapse the path to $PWD.
+export HCLOUDIMAGE_ACC_IMAGE_PATH="$PWD/$(ls result-fixture/*.raw.xz)"
 export HCLOUDIMAGE_ACC_SSH_KEY="$PWD/test/fixtures/throwaway_ed25519"
 export HCLOUDIMAGE_ACC_RUN_ARM=0   # set 1 to include the arm leg
 

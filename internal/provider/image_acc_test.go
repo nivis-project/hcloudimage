@@ -27,10 +27,19 @@ func mustAbs(t *testing.T, name, p string) string {
 	if err != nil {
 		t.Fatalf("%s: resolving %q to an absolute path: %v", name, p, err)
 	}
-	if _, err := os.Stat(abs); err != nil {
+	fi, err := os.Stat(abs)
+	if err != nil {
 		t.Fatalf("%s=%q does not exist (resolved to %q). Pass an ABSOLUTE path — "+
 			"go test's working dir is the package, not the repo root. "+
-			"Example: export %s=\"$PWD/$(ls result/*.raw.xz)\"", name, p, abs, name)
+			"Example: export %s=\"$PWD/$(ls result-fixture/*.raw.xz)\"", name, p, abs, name)
+	}
+	if fi.IsDir() {
+		// Almost always means the glob was empty, e.g. `$PWD/$(ls result/*.raw.xz)`
+		// collapsed to `$PWD/` because result/ pointed at a non-fixture build.
+		t.Fatalf("%s=%q resolves to a directory (%q), not a file. The image glob was "+
+			"probably empty — build the fixture first (nix build .#test-image-x86 "+
+			"--out-link result-fixture) and set %s=\"$PWD/$(ls result-fixture/*.raw.xz)\"",
+			name, p, abs, name)
 	}
 	return abs
 }
