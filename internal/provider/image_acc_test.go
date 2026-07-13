@@ -62,6 +62,18 @@ type accCase struct {
 	name       string
 	arch       string
 	serverType string
+	location   string
+}
+
+// envOr returns the environment variable value, or def when it is unset/empty.
+// Lets you point the acceptance run at whatever server type / location your
+// Hetzner project actually offers (availability varies by location and account),
+// e.g. HCLOUDIMAGE_ACC_SERVER_TYPE_X86=cpx11 HCLOUDIMAGE_ACC_LOCATION=hel1.
+func envOr(name, def string) string {
+	if v := os.Getenv(name); v != "" {
+		return v
+	}
+	return def
 }
 
 func TestAccImage_RealHetzner_x86(t *testing.T) {
@@ -69,7 +81,12 @@ func TestAccImage_RealHetzner_x86(t *testing.T) {
 		t.Skip("TF_ACC not set")
 	}
 	accPreCheck(t)
-	runAcceptance(t, accCase{name: "x86", arch: "x86", serverType: "cx22"})
+	runAcceptance(t, accCase{
+		name:       "x86",
+		arch:       "x86",
+		serverType: envOr("HCLOUDIMAGE_ACC_SERVER_TYPE_X86", "cx22"),
+		location:   envOr("HCLOUDIMAGE_ACC_LOCATION", "nbg1"),
+	})
 }
 
 func TestAccImage_RealHetzner_arm(t *testing.T) {
@@ -80,7 +97,12 @@ func TestAccImage_RealHetzner_arm(t *testing.T) {
 		t.Skip("HCLOUDIMAGE_ACC_RUN_ARM != 1; arm acceptance is toggle-gated (cost)")
 	}
 	accPreCheck(t)
-	runAcceptance(t, accCase{name: "arm", arch: "arm", serverType: "cax11"})
+	runAcceptance(t, accCase{
+		name:       "arm",
+		arch:       "arm",
+		serverType: envOr("HCLOUDIMAGE_ACC_SERVER_TYPE_ARM", "cax11"),
+		location:   envOr("HCLOUDIMAGE_ACC_LOCATION", "nbg1"),
+	})
 }
 
 func runAcceptance(t *testing.T, c accCase) {
@@ -112,7 +134,7 @@ resource "hcloudimage_image" "test" {
   image_sha256 = filesha256(%q)
   architecture = %q
   compression  = "xz"
-  location     = "nbg1"
+  location     = %q
   labels = { test = "hcloudimage-acc" }
 }
 
@@ -125,14 +147,14 @@ resource "hcloud_server" "test" {
   name        = "hcloudimage-acc-%s"
   image       = hcloudimage_image.test.id
   server_type = %q
-  location    = "nbg1"
+  location    = %q
   ssh_keys    = [hcloud_ssh_key.test.id]
 }
 
 output "server_ipv4" {
   value = hcloud_server.test.ipv4_address
 }
-`, imagePath, imagePath, c.arch, c.name, sshKey+".pub", c.name, c.serverType)
+`, imagePath, imagePath, c.arch, c.location, c.name, sshKey+".pub", c.name, c.serverType, c.location)
 
 	resource.Test(t, resource.TestCase{
 		// The acceptance run pulls both providers from their registries via the

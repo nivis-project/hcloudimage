@@ -74,6 +74,7 @@
             goreleaser
             gnumake
             hcloud-upload-image
+            hcloud # CLI for inspecting server types / locations and manual cleanup
           ];
         };
       });

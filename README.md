@@ -140,6 +140,17 @@ export TF_ACC=1
 export HCLOUDIMAGE_ACC_IMAGE_PATH="$PWD/$(ls result/*.raw.xz)"
 export HCLOUDIMAGE_ACC_SSH_KEY="$PWD/test/fixtures/throwaway_ed25519"
 export HCLOUDIMAGE_ACC_RUN_ARM=0   # set 1 to include the arm leg
+
+# Server type / location default to cx22 / cax11 in nbg1. Availability varies by
+# location and account, so override if a type isn't offered where you run (the
+# error looks like: "server type cx22 not found"). Find valid types with:
+#   nix develop --command hcloud server-type list         # requires HCLOUD_TOKEN
+#   nix develop --command hcloud datacenter list          # location availability
+# then e.g.:
+# export HCLOUDIMAGE_ACC_LOCATION=hel1
+# export HCLOUDIMAGE_ACC_SERVER_TYPE_X86=cpx11   # AMD shared, widely available
+# export HCLOUDIMAGE_ACC_SERVER_TYPE_ARM=cax11
+
 nix develop --command go test ./internal/provider -run TestAccImage_RealHetzner -v -timeout 60m
 ```
 
