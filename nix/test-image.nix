@@ -80,6 +80,10 @@ pkgs.stdenv.mkDerivation {
     printf '%s' ${pkgs.lib.escapeShellArg keyContents} > authorized_keys
     printf 'auto eth0\niface eth0 inet dhcp\n' > interfaces
 
+    # Explicit sshd policy for the throwaway test image: allow root key login
+    # regardless of the compiled default, the locked root password, or PAM.
+    printf 'PermitRootLogin yes\nPubkeyAuthentication yes\nPasswordAuthentication no\n' > 99-hcloudimage-acc.conf
+
     # --no-logfile and a fixed timestamp reduce in-image nondeterminism; disk
     # images are not bit-reproducible in general (fs metadata/journals), but the
     # inputs are pinned and the customize step is fully offline/hermetic.
@@ -89,6 +93,15 @@ pkgs.stdenv.mkDerivation {
       --upload authorized_keys:/root/.ssh/authorized_keys \
       --chmod 0700:/root/.ssh \
       --chmod 0600:/root/.ssh/authorized_keys \
+      `# --upload preserves the host file's uid/gid (the Nix build user, uid 1000).` \
+      `# sshd StrictModes silently ignores an authorized_keys not owned by root, so` \
+      `# chown the whole .ssh tree back to root:root or key auth fails.` \
+      --run-command 'chown -R 0:0 /root/.ssh' \
+      --mkdir /etc/ssh/sshd_config.d \
+      --upload 99-hcloudimage-acc.conf:/etc/ssh/sshd_config.d/99-hcloudimage-acc.conf \
+      `# Unlock root: a locked password (!) can make PAM/sshd refuse root login` \
+      `# even with a valid key on some configs. Throwaway image, key-only access.` \
+      --run-command 'passwd -u root 2>/dev/null || sed -i "s/^root:!\\*\\?:/root:*:/" /etc/shadow || true' \
       --upload interfaces:/etc/network/interfaces \
       --run-command 'rc-update add sshd default || true' \
       --run-command 'rc-update add networking default || true' \
