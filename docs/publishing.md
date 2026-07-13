@@ -43,9 +43,24 @@ verify.
 
 ## Terraform Registry
 
-1. Sign in at <https://registry.terraform.io> with the `nivis-project` org.
-2. Publish the provider: connect the GitHub repo and add the **GPG public key**
-   to the namespace's signing keys.
+> **Status: not currently published to the Terraform Registry.** See the key-type
+> caveat below.
+>
+> **⚠️ Key type:** the Terraform Registry accepts only **RSA or DSA** GPG keys,
+> **not ECC/EdDSA (ed25519)**. Our current signing key
+> (`keys/hcloudimage-signing.pub.asc`) is ed25519 — accepted by OpenTofu but
+> **rejected by the Terraform Registry**. To publish here you must generate an
+> **RSA-4096** signing key, add it as the `GPG_PRIVATE_KEY`/`GPG_FINGERPRINT`
+> secrets, and cut a new release signed with it (you can sign with both keys, or
+> switch to a single RSA key which both registries accept).
+
+Once you have an RSA key and an RSA-signed release:
+
+1. Sign in at <https://registry.terraform.io> **with GitHub** (not HCP — HCP is a
+   separate paid product and is not involved). Authorize the Terraform Registry
+   OAuth app for the `nivis-project` org.
+2. Click **Publish → Provider**, select `nivis-project/terraform-provider-hcloudimage`,
+   and add the **RSA GPG public key** to the namespace's signing keys.
 3. The registry then picks up tagged releases automatically — each new
    `vX.Y.Z` tag that `release.yml` publishes appears as a provider version.
 
