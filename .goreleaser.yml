@@ -52,8 +52,14 @@ signs:
   - artifacts: checksum
     signature: "${artifact}.sig"
     # GPG_FINGERPRINT is provided as a repo secret (BRIEFING.md §14).
+    # --pinentry-mode loopback keeps signing non-interactive: with a
+    # no-passphrase key it signs directly; with a passphrase it can be fed
+    # without a TTY prompt (the PASSPHRASE secret is optional — omit it if the
+    # key has none).
     args:
       - "--batch"
+      - "--pinentry-mode"
+      - "loopback"
       - "--local-user"
       - "{{ .Env.GPG_FINGERPRINT }}"
       - "--output"
