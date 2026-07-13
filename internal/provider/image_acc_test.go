@@ -115,6 +115,10 @@ func runAcceptance(t *testing.T, c accCase) {
 	imagePath := mustAbs(t, "HCLOUDIMAGE_ACC_IMAGE_PATH", os.Getenv("HCLOUDIMAGE_ACC_IMAGE_PATH"))
 	sshKey := mustAbs(t, "HCLOUDIMAGE_ACC_SSH_KEY", os.Getenv("HCLOUDIMAGE_ACC_SSH_KEY"))
 
+	// A per-run suffix keeps the server name unique, so a leftover server from a
+	// crashed earlier run can't collide with this one.
+	runSuffix := fmt.Sprintf("%d", time.Now().UnixNano())
+
 	// The real uploader is selected automatically because HCLOUD_TOKEN is set and
 	// HCLOUDIMAGE_FAKE is unset.
 	config := fmt.Sprintf(`
@@ -138,23 +142,19 @@ resource "hcloudimage_image" "test" {
   labels = { test = "hcloudimage-acc" }
 }
 
-resource "hcloud_ssh_key" "test" {
-  name       = "hcloudimage-acc-%s"
-  public_key = file(%q)
-}
-
 resource "hcloud_server" "test" {
-  name        = "hcloudimage-acc-%s"
+  name        = "hcloudimage-acc-%s-%s"
   image       = hcloudimage_image.test.id
   server_type = %q
   location    = %q
-  ssh_keys    = [hcloud_ssh_key.test.id]
+  # No ssh_keys / cloud-init key injection: the throwaway key is baked into the
+  # image's authorized_keys (BRIEFING §8.3 — distro-agnostic, cloud-init-free).
 }
 
 output "server_ipv4" {
   value = hcloud_server.test.ipv4_address
 }
-`, imagePath, imagePath, c.arch, c.location, c.name, sshKey+".pub", c.name, c.serverType, c.location)
+`, imagePath, imagePath, c.arch, c.location, c.name, runSuffix, c.serverType, c.location)
 
 	resource.Test(t, resource.TestCase{
 		// The acceptance run pulls both providers from their registries via the
