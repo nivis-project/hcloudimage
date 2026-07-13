@@ -1,0 +1,23 @@
+# seed bundle (content extracted to BRIEFING.md)
+terraform-provider-hcloudimage-seed.zip
+
+# nix
+result
+result-*
+.direnv/
+
+# terraform / opentofu
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+crash.log
+
+# go
+vendor/
+dist/
+*.test
+coverage.out
+
+# local agent settings
+.claude/settings.local.json
